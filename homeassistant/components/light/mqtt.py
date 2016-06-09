@@ -42,7 +42,8 @@ def setup_platform(hass, config, add_devices_callback, discovery_info=None):
         config.get('qos', DEFAULT_QOS),
         {
             'on': config.get('payload_on', DEFAULT_PAYLOAD_ON),
-            'off': config.get('payload_off', DEFAULT_PAYLOAD_OFF)
+            'off': config.get('payload_off', DEFAULT_PAYLOAD_OFF),
+            'brightness': config.get('payload_brightness', None)
         },
         config.get('optimistic', DEFAULT_OPTIMISTIC),
         config.get('brightness_scale', DEFAULT_BRIGHTNESS_SCALE)
@@ -147,6 +148,16 @@ class MqttLight(Light):
         """Return true if we do optimistic updates."""
         return self._optimistic
 
+    def parse_brightness(self, brightness):
+        """
+        Replace placeholder with actual custom brightness or
+        return original brightness.
+        """
+        if self._payload["brightness"] is not None:
+            return str(self._payload["brightness"]).replace(
+                'placeholder_brightness', str(brightness))
+        return brightness
+
     def turn_on(self, **kwargs):
         """Turn the device on."""
         should_update = False
@@ -166,7 +177,7 @@ class MqttLight(Light):
             percent_bright = float(kwargs[ATTR_BRIGHTNESS]) / 255
             device_brightness = int(percent_bright * self._brightness_scale)
             mqtt.publish(self._hass, self._topic["brightness_command_topic"],
-                         device_brightness, self._qos)
+                         self.parse_brightness(device_brightness), self._qos)
 
             if self._optimistic_brightness:
                 self._brightness = kwargs[ATTR_BRIGHTNESS]
